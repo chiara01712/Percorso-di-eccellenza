@@ -1,0 +1,21 @@
+1° confronto Dimostrare che l'algoritmo precedente (reattivo e semplificato) crolla quando viene calato in un ambiente IoT realistico.
+- L'Ambiente di Test A: Il vecchio mondo di Lorenzo (irradianza di un solo giorno fisso, arrivo frame costante a 15 fps, comunicazioni perfette, RAM infinita).
+
+- L'Ambiente di Test B: storico annuale dell'irradianza, frame stocastici, packet loss e latenza (?), Replay Buffer limitato a 1000 transizioni.
+
+- Procedimento: Far girare lo stesso algoritmo di Lorenzo (DQN in modalità IQL, possibilmente la versione aggregated_states) in entrambi gli ambienti.
+
+
+2° confronto Dimostrare che il mio nuovo algoritmo ha una performancemigliore nell'ambiente IoT complesso, scalando in modo massiccio
+
+- Prendere il nuovo ambiente complesso.
+
+- Farci girare dentro il mio algoritmo MF-MARL + LSTM per la storicità e salvare i risultati.
+
+Farci girare dentro il vecchio algoritmo IQL di Lorenzo ((once_a_time non è scientificamente valido per addestramenti simultanei reali) aggregated_states o reduced_states) e salvare i risultati.
+
+Confronti questi due nuovi set di dati.
+
+Nota personale: Per altre informazioni controllare i Confronti nel file deggli appunti
+
+Per i confronti della tesi immagino di useare quello che tra i due ha la perfrormance migliore (aggregated , reduced)

@@ -1,0 +1,2 @@
+I file di plot dovrebbero essere gli stessi della sezione precedente
+Servono per confrontare le prestazioni (Reward, Livello di Batteria, Framerate, Backlog e Tempi di esecuzione) al variare del numero di agenti e del design delle osservazioni.
