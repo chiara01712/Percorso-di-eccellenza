@@ -58,8 +58,9 @@ class CustomEnvironment(ParallelEnv):
         
         self.backlogs = [0 for i in range(0, self._num_agents)]
         
-        # state_i = (battery_level_i, daily_completion_i)
-        self.states = [[0.0, 0, 0.0] for i in range(0, self._num_agents)]
+        # state_i = (battery_level_i, backlog_level_i, daily_completion_i, day_of_year_i) added  day_of_year_i
+        #self.states = [[0.0, 0, 0.0] for i in range(0, self._num_agents)]
+        self.states = [[0.0, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
         self.actions = [[0.0, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
         self.rewards = [0 for i in range(0, self._num_agents)]
         
@@ -88,7 +89,7 @@ class CustomEnvironment(ParallelEnv):
             # x_i -> "offloading mode"
             # g_i -> "target node"
             # h_i -> "offloading framerate"
-        self._observation_spaces = {
+        """ self._observation_spaces = {
             agent: spaces.Box(
                 low=np.array([0.0, 0.0, 0.0] * self._num_agents, dtype=np.float32),
                 high=np.array([1.0, 3.0, 1.0] * self._num_agents, dtype=np.float32),
@@ -96,7 +97,18 @@ class CustomEnvironment(ParallelEnv):
             ) 
             for agent in self.possible_agents
         
+        } """
+
+        self._observation_spaces = {
+            agent: spaces.Box(
+                # Aggiungiamo un 0.0 (low) e un 1.0 (high) per il giorno dell'anno per ogni agente
+                low=np.array([0.0, 0.0, 0.0, 0.0] * self._num_agents, dtype=np.float32),
+                high=np.array([1.0, 3.0, 1.0, 1.0] * self._num_agents, dtype=np.float32),
+                dtype=np.float32
+            ) 
+            for agent in self.possible_agents
         }
+
         
         self.fs = [0 for i in range(0, self._num_agents)]
         self.hs = [0 for i in range(0, self._num_agents)]
@@ -399,7 +411,8 @@ class CustomEnvironment(ParallelEnv):
         
         # setting to 0 all training variables
         self.timestep = 0
-        self.states = [[0.5, 0, 0.0] for i in range(0, self._num_agents)]
+        #self.states = [[0.5, 0, 0.0] for i in range(0, self._num_agents)]
+        self.states = [[0.8, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
         self.actions = [[0.0, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
         self.battery_energies = [(self.battery_capacities[i] * self.states[i][0]) for i in range(0, self._num_agents)]
         self.backlogs = [0 for i in range(0, self._num_agents)]
@@ -521,7 +534,9 @@ class CustomEnvironment(ParallelEnv):
         for agent_id in range(self._num_agents):
             self.states[agent_id][0] = round(self.battery_energies[agent_id] / self.battery_capacities[agent_id], 2)
             self.states[agent_id][1] = self.calculate_backlog_level(agent_id)
-            self.states[agent_id][2] = round(self.timestep / self.max_steps, 4)  
+            self.states[agent_id][2] = round(self.timestep / self.max_steps, 4) 
+            # Aggiungiamo il giorno dell'anno normalizzato (es. giorno 172 / 365) 
+            self.states[agent_id][3] = round(float(self.episode / 365.0), 4)
         
     def update_states(self):
         # for each agent, update its state on the basis of the actions it executes
