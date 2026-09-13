@@ -78,7 +78,7 @@ class SB3_MAS_Train:
                 policy="MlpPolicy",
                 env=EnvWrapper(self.env, i),
                 learning_rate=0.0001,
-                buffer_size=100000,
+                buffer_size=2000,  # previously 100000
                 learning_starts=500,
                 batch_size=256,
                 tau=1.0,
