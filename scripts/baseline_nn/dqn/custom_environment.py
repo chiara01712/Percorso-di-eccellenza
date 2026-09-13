@@ -357,7 +357,7 @@ class CustomEnvironment(ParallelEnv):
         gt_gti = self.actions[gti][2]
         ht_gti = self.actions[gti][3]
         
-        idx = (self.episode * self.max_steps) + self.timestep
+        idx = int((self.episode * self.max_steps) + self.timestep) % len(self.irradiance_arrays[agent_id])
         # print(idx)
         irradiance = self.irradiance_arrays[agent_id][idx]
         self.irradiance_level[agent_id] = self.irradiance_arrays[agent_id][idx] / self.max_irrad
@@ -440,11 +440,8 @@ class CustomEnvironment(ParallelEnv):
         
         for agent_id in range(0, self._num_agents):
             fti = self.actions[agent_id][0]
-            # xti = self.actions[agent_id][1]
-            # gti = self.actions[agent_id][2]
-            # hti = self.actions[agent_id][3]
             
-            idx = (self.episode * self.max_steps) + self.timestep
+            idx = int((self.episode * self.max_steps) + self.timestep) % len(self.irradiance_arrays[agent_id])
             self.irradiance_level[agent_id] = self.irradiance_arrays[agent_id][idx] / self.max_irrad
             panel_energy = self.irradiance_level[agent_id] * self.max_irrad * self.panel_surfaces[agent_id] * self._proc_interval * self.panel_efficiency
             
@@ -553,7 +550,7 @@ class CustomEnvironment(ParallelEnv):
             gt_gti = self.actions[gti][2]
             ht_gti = self.actions[gti][3]
 
-            idx = (self.episode * self.max_steps) + self.timestep
+            idx = int((self.episode * self.max_steps) + self.timestep) % len(self.irradiance_arrays[agent_id])
             # print(idx)
             self.irradiance_level[agent_id] = self.irradiance_arrays[agent_id][idx] / self.max_irrad
             panel_energy = self.irradiance_level[agent_id] * self.max_irrad * self.panel_surfaces[agent_id] * self._proc_interval * self.panel_efficiency
@@ -676,15 +673,10 @@ class CustomEnvironment(ParallelEnv):
         gt_gti = self.actions[gti][2]
         ht_gti = self.actions[gti][3]
         
-        idx = (self.episode * self.max_steps) + self.timestep
+        idx = int((self.episode * self.max_steps) + self.timestep) % len(self.irradiance_arrays[agent_id])
         # print(idx)
         irradiance = self.irradiance_arrays[agent_id][idx]
         self.irradiance_level[agent_id] = self.irradiance_arrays[agent_id][idx] / self.max_irrad
-        
-        fti = self.actions[agent_id][0]
-    
-        idx = (self.episode * self.max_steps) + self.timestep
-        irradiance = self.irradiance_arrays[agent_id][idx]
         
         panel_energy = irradiance * self.panel_surfaces[agent_id] * self.panel_efficiency * self._proc_interval
         actual_battery = self.battery_energies[agent_id] + panel_energy
@@ -729,7 +721,7 @@ class CustomEnvironment(ParallelEnv):
         gt_gti = self.actions[gti][2]
         ht_gti = self.actions[gti][3]
         
-        idx = (self.episode * self.max_steps) + self.timestep
+        idx = int((self.episode * self.max_steps) + self.timestep) % len(self.irradiance_arrays[agent_id])
         # print(idx)
         irradiance = self.irradiance_arrays[agent_id][idx]
         self.irradiance_level[agent_id] = self.irradiance_arrays[agent_id][idx] / self.max_irrad
