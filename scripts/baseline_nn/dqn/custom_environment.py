@@ -429,8 +429,8 @@ class CustomEnvironment(ParallelEnv):
         }
 
         infos = {a: {} for a in self.agents}
-        
-        self.episode = 355
+        # the day is no longer the same
+        # self.episode = 355
 
         return observations, infos
         
@@ -535,7 +535,7 @@ class CustomEnvironment(ParallelEnv):
             self.states[agent_id][0] = round(self.battery_energies[agent_id] / self.battery_capacities[agent_id], 2)
             self.states[agent_id][1] = self.calculate_backlog_level(agent_id)
             self.states[agent_id][2] = round(self.timestep / self.max_steps, 4) 
-            # Aggiungiamo il giorno dell'anno normalizzato (es. giorno 172 / 365) 
+            # Add normalized day of the year (es. day 172 / 365) 
             self.states[agent_id][3] = round(float(self.episode / 365.0), 4)
         
     def update_states(self):

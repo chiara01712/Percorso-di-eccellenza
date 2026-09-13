@@ -465,6 +465,9 @@ class SB3_MAS_Train:
         
         for i in range(0, self.num_episodes):
             temp = time.time()
+            # Rotate the day
+            self.env.episode = i % 365
+
             obs = self.env.reset()
             
             rewards_episode = {agent: 0.0 for agent in range(self.num_agents)}
