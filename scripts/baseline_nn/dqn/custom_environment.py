@@ -83,27 +83,14 @@ class CustomEnvironment(ParallelEnv):
         self._action_spaces = {
             agent: spaces.MultiDiscrete([self._processing_rate + 1, 3, self._num_agents, self._processing_rate + 1]) for agent in self.possible_agents
         }
-        
-        # action_space: [f_i, x_i, g_i, h_i] where
-            # f_i -> "local framerate"
-            # x_i -> "offloading mode"
-            # g_i -> "target node"
-            # h_i -> "offloading framerate"
-        """ self._observation_spaces = {
-            agent: spaces.Box(
-                low=np.array([0.0, 0.0, 0.0] * self._num_agents, dtype=np.float32),
-                high=np.array([1.0, 3.0, 1.0] * self._num_agents, dtype=np.float32),
-                dtype=np.float32
-            ) 
-            for agent in self.possible_agents
-        
-        } """
+
+        # define how far in the past we want to see
+        self.stack_size = 3
 
         self._observation_spaces = {
             agent: spaces.Box(
-                # Aggiungiamo un 0.0 (low) e un 1.0 (high) per il giorno dell'anno per ogni agente
-                low=np.array([0.0, 0.0, 0.0, 0.0] * self._num_agents, dtype=np.float32),
-                high=np.array([1.0, 3.0, 1.0, 1.0] * self._num_agents, dtype=np.float32),
+                low=np.array([0.0, 0.0, 0.0, 0.0] + [0.0] * self.stack_size * self._num_agents, dtype=np.float32),
+                high=np.array([1.0, 3.0, 1.0, 1.0] + [1.0] * self.stack_size * self._num_agents, dtype=np.float32),
                 dtype=np.float32
             ) 
             for agent in self.possible_agents
@@ -413,7 +400,14 @@ class CustomEnvironment(ParallelEnv):
         self.timestep = 0
         #self.states = [[0.5, 0, 0.0] for i in range(0, self._num_agents)]
         day_of_year_normalized = round(float(self.episode / 365.0), 4)
-        self.states = [[0.8, 0, 0.0, day_of_year_normalized] for i in range(0, self._num_agents)]
+        idx_iniziale = (self.episode * self.max_steps) + self.timestep
+
+        self.states = []
+        for i in range(0, self._num_agents):
+            inn_irradiance = round(self.irradiance_arrays[i][idx_iniziale] / self.max_irrad, 4)
+            agent_state = [0.8, 0, 0.0, day_of_year_normalized] + [inn_irradiance] * self.stack_size
+            self.states.append(agent_state)
+
         self.actions = [[0.0, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
         self.battery_energies = [(self.battery_capacities[i] * self.states[i][0]) for i in range(0, self._num_agents)]
         self.backlogs = [0 for i in range(0, self._num_agents)]
@@ -535,6 +529,15 @@ class CustomEnvironment(ParallelEnv):
             self.states[agent_id][2] = round(self.timestep / self.max_steps, 4) 
             # Add normalized day of the year (es. day 172 / 365) 
             self.states[agent_id][3] = round(float(self.episode / 365.0), 4)
+
+            # FRAME STACKING
+            idx = int((self.episode * self.max_steps) + self.timestep) % len(self.irradiance_arrays[agent_id])            
+            current_irrad = round(self.irradiance_arrays[agent_id][idx] / self.max_irrad, 4)
+            
+            # Remove old state and add the new one at the end
+            self.states[agent_id].pop(4)
+            self.states[agent_id].append(current_irrad)
+
         
     def update_states(self):
         # for each agent, update its state on the basis of the actions it executes
