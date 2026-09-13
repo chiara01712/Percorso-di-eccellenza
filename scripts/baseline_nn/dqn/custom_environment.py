@@ -412,7 +412,8 @@ class CustomEnvironment(ParallelEnv):
         # setting to 0 all training variables
         self.timestep = 0
         #self.states = [[0.5, 0, 0.0] for i in range(0, self._num_agents)]
-        self.states = [[0.8, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
+        day_of_year_normalized = round(float(self.episode / 365.0), 4)
+        self.states = [[0.8, 0, 0.0, day_of_year_normalized] for i in range(0, self._num_agents)]
         self.actions = [[0.0, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
         self.battery_energies = [(self.battery_capacities[i] * self.states[i][0]) for i in range(0, self._num_agents)]
         self.backlogs = [0 for i in range(0, self._num_agents)]
