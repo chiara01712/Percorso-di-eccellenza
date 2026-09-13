@@ -762,7 +762,9 @@ class CustomEnvironment(ParallelEnv):
 
         # updating backlogs with arriving frames for each agent
         for agent_id in range(0, self._num_agents):
-            frames_arrived = self._arrival_rate * self._proc_interval
+            # Stocastick workload : Poisson distribution
+            expected_frames = self._arrival_rate * self._proc_interval
+            frames_arrived = np.random.poisson(expected_frames)
             self.backlogs[agent_id] += frames_arrived
 
         # for each agent is returned the reward according the reward function defined a priori        
