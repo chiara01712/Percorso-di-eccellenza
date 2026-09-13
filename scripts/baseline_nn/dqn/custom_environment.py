@@ -89,8 +89,8 @@ class CustomEnvironment(ParallelEnv):
 
         self._observation_spaces = {
             agent: spaces.Box(
-                low=np.array([0.0, 0.0, 0.0, 0.0] + [0.0] * self.stack_size * self._num_agents, dtype=np.float32),
-                high=np.array([1.0, 3.0, 1.0, 1.0] + [1.0] * self.stack_size * self._num_agents, dtype=np.float32),
+                low=np.array(([0.0, 0.0, 0.0, 0.0] + [0.0] * self.stack_size) * self._num_agents, dtype=np.float32),
+                high=np.array(([1.0, 3.0, 1.0, 1.0] + [1.0] * self.stack_size) * self._num_agents, dtype=np.float32),
                 dtype=np.float32
             ) 
             for agent in self.possible_agents
