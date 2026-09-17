@@ -20,8 +20,8 @@ class CustomEnvironment(ParallelEnv):
 
         # Variables for realistic comunication 
         self.packet_loss_prob = 0.10 
-        self.successful_offloads = [True for _ in range(self._num_agents)] 
-        self.delayed_backlog_reductions = [0 for _ in range(self._num_agents)] 
+        self.successful_offloads = [True for _ in range(num_agents)] 
+        self.delayed_backlog_reductions = [0 for _ in range(num_agents)] 
 
         
         self.agents = []
