@@ -17,12 +17,6 @@ class CustomEnvironment(ParallelEnv):
 
     def __init__(self, num_agents, irradiance_datapaths, delta_time, proc_interval, proc_rate, arr_rate, batteries, panel_surfaces, power_idle, power_max, w):
         super().__init__()
-
-        # Variables for realistic comunication 
-        self.packet_loss_prob = 0.10 
-        self.successful_offloads = [True for _ in range(self._num_agents)] 
-        self.delayed_backlog_reductions = [0 for _ in range(self._num_agents)] 
-
         
         self.agents = []
         self.possible_agents = [i for i in range(0, num_agents)]
@@ -89,14 +83,27 @@ class CustomEnvironment(ParallelEnv):
         self._action_spaces = {
             agent: spaces.MultiDiscrete([self._processing_rate + 1, 3, self._num_agents, self._processing_rate + 1]) for agent in self.possible_agents
         }
-
-        # define how far in the past we want to see
-        self.stack_size = 3
+        
+        # action_space: [f_i, x_i, g_i, h_i] where
+            # f_i -> "local framerate"
+            # x_i -> "offloading mode"
+            # g_i -> "target node"
+            # h_i -> "offloading framerate"
+        """ self._observation_spaces = {
+            agent: spaces.Box(
+                low=np.array([0.0, 0.0, 0.0] * self._num_agents, dtype=np.float32),
+                high=np.array([1.0, 3.0, 1.0] * self._num_agents, dtype=np.float32),
+                dtype=np.float32
+            ) 
+            for agent in self.possible_agents
+        
+        } """
 
         self._observation_spaces = {
             agent: spaces.Box(
-                low=np.array(([0.0, 0.0, 0.0, 0.0] + [0.0] * self.stack_size) * self._num_agents, dtype=np.float32),
-                high=np.array(([1.0, 3.0, 1.0, 1.0] + [1.0] * self.stack_size) * self._num_agents, dtype=np.float32),
+                # Aggiungiamo un 0.0 (low) e un 1.0 (high) per il giorno dell'anno per ogni agente
+                low=np.array([0.0, 0.0, 0.0, 0.0] * self._num_agents, dtype=np.float32),
+                high=np.array([1.0, 3.0, 1.0, 1.0] * self._num_agents, dtype=np.float32),
                 dtype=np.float32
             ) 
             for agent in self.possible_agents
@@ -406,14 +413,7 @@ class CustomEnvironment(ParallelEnv):
         self.timestep = 0
         #self.states = [[0.5, 0, 0.0] for i in range(0, self._num_agents)]
         day_of_year_normalized = round(float(self.episode / 365.0), 4)
-        idx_iniziale = (self.episode * self.max_steps) + self.timestep
-
-        self.states = []
-        for i in range(0, self._num_agents):
-            inn_irradiance = round(self.irradiance_arrays[i][idx_iniziale] / self.max_irrad, 4)
-            agent_state = [0.8, 0, 0.0, day_of_year_normalized] + [inn_irradiance] * self.stack_size
-            self.states.append(agent_state)
-
+        self.states = [[0.8, 0, 0.0, day_of_year_normalized] for i in range(0, self._num_agents)]
         self.actions = [[0.0, 0, 0.0, 0.0] for i in range(0, self._num_agents)]
         self.battery_energies = [(self.battery_capacities[i] * self.states[i][0]) for i in range(0, self._num_agents)]
         self.backlogs = [0 for i in range(0, self._num_agents)]
@@ -497,44 +497,34 @@ class CustomEnvironment(ParallelEnv):
             remaining_framerate = self._processing_rate - fti
             
             offloading_processing = 0
-
+            
             if remaining_framerate > 0 and xti != 0:
+                if(xti == 1 and gti != agent_id and hti > 0 and xt_gti == 2 and gt_gti == agent_id and ht_gti > 0 and self.backlogs[gti] <= (self._arrival_rate * self._proc_interval)):
+                    ht = min(hti, ht_gti)
+                    backlog = self.backlogs[agent_id]
+                    
+                    processable = max(min(backlog, int((actual_battery - self.e_idle) / self.e_tx_rx), remaining_framerate * self._proc_interval), 0)
+                    processed = min(ht * self._proc_interval, processable)
+                    needed_energy = ht * self.e_tx_rx * self._proc_interval
+                    
+                    if(needed_energy <= actual_battery and processable > 0):
+                        self.backlogs[agent_id] = max(backlog - processed, 0)
+                        actual_battery = max(actual_battery - needed_energy, 0)
+                        offloading_processing = processed / self._proc_interval
+                        self.hs_counter[agent_id] += 1
                 
-                # --- NODO MITTENTE (Tx) ---
-                if xti == 1 and gti != agent_id and hti > 0 and xt_gti == 2 and gt_gti == agent_id and self.backlogs[gti] <= (self._arrival_rate * self._proc_interval):
+                if(xti == 2 and gti != agent_id and hti > 0 and xt_gti == 1 and gt_gti == agent_id and ht_gti > 0 and self.backlogs[agent_id] <= (self._arrival_rate * self._proc_interval)):
                     ht = min(hti, ht_gti)
+                    backlog = self.backlogs[gti]
                     
-                    # check packet loss
-                    if not self.successful_offloads[agent_id]:
-                        # Failure just wasted energy and not backlog reduction
-                        actual_battery = max(actual_battery - (ht * self.e_tx_rx * self._proc_interval), 0)
-                    else:
-                        processable = max(min(self.backlogs[agent_id], int((actual_battery - self.e_idle) / self.e_tx_rx), remaining_framerate * self._proc_interval), 0)
-                        processed = min(ht * self._proc_interval, processable)
-                        needed_energy = ht * self.e_tx_rx * self._proc_interval
-                        
-                        if needed_energy <= actual_battery and processable > 0:
-                            self.delayed_backlog_reductions[agent_id] += processed
-                            actual_battery = max(actual_battery - needed_energy, 0)
-                            offloading_processing = processed / self._proc_interval
-                            self.hs_counter[agent_id] += 1
-
-                # --- NODO RICEVENTE (Rx) ---
-                elif xti == 2 and gti != agent_id and hti > 0 and xt_gti == 1 and gt_gti == agent_id and self.backlogs[agent_id] <= (self._arrival_rate * self._proc_interval):
-                    ht = min(hti, ht_gti)
+                    processable = max(min(backlog, int((actual_battery - self.e_idle) / (self.e_tx_rx + self.e_frame)), remaining_framerate * self._proc_interval), 0)
+                    processed = min(ht * self._proc_interval, processable)
+                    needed_energy = ht * (self.e_tx_rx + self.e_frame) * self._proc_interval
                     
-                    # check packet loss
-                    if not self.successful_offloads[gti]:
-                        actual_battery = max(actual_battery - (ht * self.e_tx_rx * self._proc_interval), 0)
-                    else:
-                        processable = max(min(self.backlogs[gti], int((actual_battery - self.e_idle) / (self.e_tx_rx + self.e_frame)), remaining_framerate * self._proc_interval), 0)
-                        processed = min(ht * self._proc_interval, processable)
-                        needed_energy = ht * (self.e_tx_rx + self.e_frame) * self._proc_interval
-                        
-                        if needed_energy <= actual_battery and processable > 0:
-                            actual_battery = max(actual_battery - needed_energy, 0)
-                            offloading_processing = processed / self._proc_interval
-                            self.hs_counter[agent_id] += 1
+                    if(needed_energy <= actual_battery and processable > 0):
+                        actual_battery = max(actual_battery - needed_energy, 0)
+                        offloading_processing = processed / self._proc_interval
+                        self.hs_counter[agent_id] += 1
             
             self.hs[agent_id] += offloading_processing
             self.battery_energies[agent_id] = min(actual_battery, self.battery_capacities[agent_id])
@@ -545,15 +535,6 @@ class CustomEnvironment(ParallelEnv):
             self.states[agent_id][2] = round(self.timestep / self.max_steps, 4) 
             # Add normalized day of the year (es. day 172 / 365) 
             self.states[agent_id][3] = round(float(self.episode / 365.0), 4)
-
-            # FRAME STACKING
-            idx = int((self.episode * self.max_steps) + self.timestep) % len(self.irradiance_arrays[agent_id])            
-            current_irrad = round(self.irradiance_arrays[agent_id][idx] / self.max_irrad, 4)
-            
-            # Remove old state and add the new one at the end
-            self.states[agent_id].pop(4)
-            self.states[agent_id].append(current_irrad)
-
         
     def update_states(self):
         # for each agent, update its state on the basis of the actions it executes
@@ -728,15 +709,10 @@ class CustomEnvironment(ParallelEnv):
                                    )
     
     def calculate_reward_offloading(self, agent_id):
-        if not self.successful_offloads[agent_id]:
-            return 0.0
-                
         fti = self.actions[agent_id][0]
         xti = self.actions[agent_id][1]
         gti = self.actions[agent_id][2]
         hti = self.actions[agent_id][3]
-
-         
         
         # print(f"agent_id: {agent_id} - fti: {fti} - xti: {xti} - gti: {gti} - hti: {hti}")
         
@@ -781,21 +757,10 @@ class CustomEnvironment(ParallelEnv):
             for j in range(0, len(actions[i])):
                 self.actions[i][j] = actions[i][j]
 
-        # I frame offloaded before leave the backlog
+        # updating backlogs with arriving frames for each agent
         for agent_id in range(0, self._num_agents):
-            self.backlogs[agent_id] = max(self.backlogs[agent_id] - self.delayed_backlog_reductions[agent_id], 0)
-            self.delayed_backlog_reductions[agent_id] = 0
-
-        for agent_id in range(0, self._num_agents):
-            # Stocastick workload : Poisson distribution
-            expected_frames = self._arrival_rate * self._proc_interval
-            frames_arrived = np.random.poisson(expected_frames)
+            frames_arrived = self._arrival_rate * self._proc_interval
             self.backlogs[agent_id] += frames_arrived
-
-        #determins which packets are lost
-        for agent_id in range(0, self._num_agents):
-            self.successful_offloads[agent_id] = (np.random.random() >= self.packet_loss_prob)
-
 
         # for each agent is returned the reward according the reward function defined a priori        
         rewards = {a: self.calculate_reward_locally(a) for a in self.agents}
